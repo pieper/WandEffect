@@ -335,8 +335,8 @@ class WandEffect:
   """
   def __init__(self, parent):
     parent.title = "Editor Wand Effect"
-    parent.category = "Developer Tools.Editor Extensions"
-    parent.contributor = "Steve Pieper"
+    parent.categories = ["Developer Tools.Editor Extensions"]
+    parent.contributors = ["Steve Pieper"]
     parent.helpText = """
     Example of an editor extension.  No module interface here, only in the Editor module
     """
