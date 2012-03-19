@@ -16,3 +16,6 @@ CMakeLists.txt.user*
 
 # ignore ctags file
 tags
+
+# python compiled code
+*.pyc
