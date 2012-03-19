@@ -70,8 +70,10 @@ class WandEffectOptions(EditorLib.LabelEffectOptions):
 
     HelpButton(self.frame, "Use this tool to label all voxels that are within a tolerance of where you click")
 
-    self.toleranceSpinBox.connect('valueChanged(double)', self.onToleranceSpinBoxChanged)
-    self.maxPixelsSpinBox.connect('valueChanged(double)', self.onMaxPixelsSpinBoxChanged)
+    self.connections.append( 
+        (self.toleranceSpinBox, 'valueChanged(double)', self.onToleranceSpinBoxChanged) )
+    self.connections.append( 
+        (self.maxPixelsSpinBox, 'valueChanged(double)', self.onMaxPixelsSpinBoxChanged) )
 
     # Add vertical spacer
     self.frame.layout().addStretch(1)
@@ -99,26 +101,23 @@ class WandEffectOptions(EditorLib.LabelEffectOptions):
       ("maxPixels", "200"),
     )
     for d in defaults:
-      param = "Wand,"+d[0]
+      param = "WandEffect,"+d[0]
       pvalue = self.parameterNode.GetParameter(param)
       if pvalue == '':
         self.parameterNode.SetParameter(param, d[1])
     self.parameterNode.SetDisableModifiedEvent(disableState)
 
   def updateGUIFromMRML(self,caller,event):
-    if self.updatingGUI:
-      return
-    params = ("tolerance",)
-    params = ("maxPixels",)
+    params = ("tolerance", "maxPixels",)
     for p in params:
-      if self.parameterNode.GetParameter("Wand,"+p) == '':
+      if self.parameterNode.GetParameter("WandEffect,"+p) == '':
         # don't update if the parameter node has not got all values yet
         return
-    self.updatingGUI = True
     super(WandEffectOptions,self).updateGUIFromMRML(caller,event)
-    self.toleranceSpinBox.setValue( float(self.parameterNode.GetParameter("Wand,tolerance")) )
-    self.maxPixelsSpinBox.setValue( float(self.parameterNode.GetParameter("Wand,maxPixels")) )
-    self.updatingGUI = False
+    self.disconnectWidgets()
+    self.toleranceSpinBox.setValue( float(self.parameterNode.GetParameter("WandEffect,tolerance")) )
+    self.maxPixelsSpinBox.setValue( float(self.parameterNode.GetParameter("WandEffect,maxPixels")) )
+    self.connectWidgets()
 
   def onToleranceSpinBoxChanged(self,value):
     if self.updatingGUI:
@@ -131,13 +130,11 @@ class WandEffectOptions(EditorLib.LabelEffectOptions):
     self.updateMRMLFromGUI()
 
   def updateMRMLFromGUI(self):
-    if self.updatingGUI:
-      return
     disableState = self.parameterNode.GetDisableModifiedEvent()
     self.parameterNode.SetDisableModifiedEvent(1)
     super(WandEffectOptions,self).updateMRMLFromGUI()
-    self.parameterNode.SetParameter( "Wand,tolerance", str(self.toleranceSpinBox.value) )
-    self.parameterNode.SetParameter( "Wand,maxPixels", str(self.maxPixelsSpinBox.value) )
+    self.parameterNode.SetParameter( "WandEffect,tolerance", str(self.toleranceSpinBox.value) )
+    self.parameterNode.SetParameter( "WandEffect,maxPixels", str(self.maxPixelsSpinBox.value) )
     self.parameterNode.SetDisableModifiedEvent(disableState)
     if not disableState:
       self.parameterNode.InvokePendingModifiedEvent()
@@ -171,11 +168,11 @@ class WandEffectTool(LabelEffect.LabelEffectTool):
       xy = self.interactor.GetEventPosition()
       sliceLogic = self.sliceWidget.sliceLogic()
       logic = WandEffectLogic(sliceLogic)
+      logic.undoRedo = self.undoRedo
       logic.apply(xy)
       self.abortEvent(event)
     else:
       pass
-      #print(caller,event,self.sliceWidget.sliceLogic().GetSliceNode().GetName())
 
 
 #
@@ -197,23 +194,18 @@ class WandEffectLogic(LabelEffect.LabelEffectLogic):
     self.sliceLogic = sliceLogic
 
   def apply(self,xy):
-    # TODO: save the undo state - not yet available for extensions
-    # EditorStoreCheckPoint $_layers(label,node)
-    
     #
     # get the parameters from MRML
     #
     node = EditUtil.EditUtil().getParameterNode()
-    tolerance = float(node.GetParameter("Wand,tolerance"))
-    maxPixels = float(node.GetParameter("Wand,maxPixels"))
-
+    tolerance = float(node.GetParameter("WandEffect,tolerance"))
+    maxPixels = float(node.GetParameter("WandEffect,maxPixels"))
 
     #
     # get the label and background volume nodes
     #
     labelLogic = self.sliceLogic.GetLabelLayer()
     labelNode = labelLogic.GetVolumeNode()
-    labelNode.SetModifiedSinceRead(1)
     backgroundLogic = self.sliceLogic.GetBackgroundLayer()
     backgroundNode = backgroundLogic.GetVolumeNode()
 
@@ -249,7 +241,9 @@ class WandEffectLogic(LabelEffect.LabelEffectLogic):
     labelArray = vtk.util.numpy_support.vtk_to_numpy(labelImage.GetPointData().GetScalars()).reshape(shape)
 
     #
-    # do a re
+    # do a recursive search for pixels to change
+    #
+    self.undoRedo.saveState()
     value = backgroundArray[ijk]
     label = EditUtil.EditUtil().getLabel()
     lo = value - tolerance
@@ -278,24 +272,10 @@ class WandEffectLogic(LabelEffect.LabelEffectLogic):
         toVisit.append((location[0]    , location[1]    , location[2] - 1))
         toVisit.append((location[0]    , location[1]    , location[2] + 1))
 
-
-
-
-    # TODO: workaround for new pipeline in slicer4
-    # - editing image data of the calling modified on the node
-    #   does not pull the pipeline chain
-    # - so we trick it by changing the image data first
-    workaround = 1
-    if workaround:
-      if not hasattr(self,"tempImageData"):
-        self.tempImageData = vtk.vtkImageData()
-      imageData = labelNode.GetImageData()
-      labelNode.SetAndObserveImageData(self.tempImageData)
-      labelNode.SetAndObserveImageData(imageData)
-    else:
-      labelNode.Modified()
-
-
+    # signal to slicer that the label needs to be updated
+    labelImage.Modified()
+    labelNode.SetModifiedSinceRead(1)
+    labelNode.Modified()
 
 #
 # The WandEffectExtension class definition 
