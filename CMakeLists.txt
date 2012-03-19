@@ -17,23 +17,31 @@ endif()
 set(EXTENSION_NAME WandEffect)
 
 #-----------------------------------------------------------------------------
+# Extension metadata
+#-----------------------------------------------------------------------------
+if(NOT Slicer_SOURCE_DIR)
+  set(EXTENSION_HOMEPAGE "https://github.com/pieper/WandEffect")
+  set(EXTENSION_CATEGORY "Editor Extensions")
+  set(EXTENSION_ICONURL "https://github.com/pieper/WandEffect/raw/master/WandEffect.png")
+  set(EXTENSION_STATUS "Beta")
+  set(EXTENSION_CONTRIBUTORS "Steve Pieper (Isomics)")
+  set(EXTENSION_DESCRIPTION "This is an example of scripted editor effect built as an extension")
+  set(EXTENSION_SCREENSHOTURLS "https://github.com/pieper/WandEffect/raw/master/WandEffect.png")
+  set(EXTENSION_DEPENDS NA) # Specified as a space separated list or 'NA' if any
+endif()
+
+#-----------------------------------------------------------------------------
 # Prerequisites
 #-----------------------------------------------------------------------------
 if(NOT Slicer_SOURCE_DIR)
-  set(EXTENSION_HOMEPAGE "http://www.slicer.org/slicerWiki/index.php/Slicer4:Developers:Projects:QtSlicer/Tutorials/ExtensionWriting")
-  set(EXTENSION_CATEGORY "Examples")
-  set(EXTENSION_STATUS "Beta")
-  set(EXTENSION_DESCRIPTION "This is an example of scripted loadable editor effect built as an extension")
-  set(EXTENSION_DEPENDS NA) # Specified as a space separated list or 'NA' if any
-
   find_package(Slicer REQUIRED)
-  
+
   # Additional C/CXX flags - Should be defined before including Slicer_USE_FILE
   set(ADDITIONAL_C_FLAGS "" CACHE STRING "Additional ${EXTENSION_NAME} C Flags")
   set(ADDITIONAL_CXX_FLAGS "" CACHE STRING "Additional ${EXTENSION_NAME} CXX Flags")
-  
+
   include(${Slicer_USE_FILE})
-  
+
   set(EXTENSION_LICENSE_FILE ${Slicer_LICENSE_FILE})
   set(EXTENSION_README_FILE ${Slicer_README_FILE})
 
@@ -47,7 +55,7 @@ endif()
 set(KIT_PYTHON_SCRIPTS
   WandEffect.py
   )
-  
+
 set(KIT_PYTHON_RESOURCES
   WandEffect.png
   )
@@ -60,7 +68,8 @@ ctkMacroCompilePythonScript(
   SCRIPTS "${KIT_PYTHON_SCRIPTS}"
   RESOURCES "${KIT_PYTHON_RESOURCES}"
   DESTINATION_DIR ${CMAKE_BINARY_DIR}/${Slicer_QTSCRIPTEDMODULES_LIB_DIR}
-  INSTALL_DIR ${Slicer_INSTALL_ROOT}
+  INSTALL_DIR ${Slicer_INSTALL_QTSCRIPTEDMODULES_LIB_DIR}
+  NO_INSTALL_SUBDIR
   )
 
 #-----------------------------------------------------------------------------
@@ -78,9 +87,12 @@ if(NOT Slicer_SOURCE_DIR)
   slicerFunctionGenerateExtensionDescription(
     EXTENSION_NAME ${EXTENSION_NAME}
     EXTENSION_CATEGORY ${EXTENSION_CATEGORY}
+    EXTENSION_ICONURL ${EXTENSION_ICONURL}
     EXTENSION_STATUS ${EXTENSION_STATUS}
     EXTENSION_HOMEPAGE ${EXTENSION_HOMEPAGE}
+    EXTENSION_CONTRIBUTORS ${EXTENSION_CONTRIBUTORS}
     EXTENSION_DESCRIPTION ${EXTENSION_DESCRIPTION}
+    EXTENSION_SCREENSHOTURLS ${EXTENSION_SCREENSHOTURLS}
     EXTENSION_DEPENDS ${EXTENSION_DEPENDS}
     DESTINATION_DIR ${CMAKE_CURRENT_BINARY_DIR}
     SLICER_WC_REVISION ${Slicer_WC_REVISION}
