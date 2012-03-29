@@ -197,6 +197,7 @@ class WandEffectLogic(LabelEffect.LabelEffectLogic):
 
   def __init__(self,sliceLogic):
     self.sliceLogic = sliceLogic
+    self.fillMode = 'Plane' # can be Plane or Volume
 
   def apply(self,xy):
     #
@@ -245,37 +246,65 @@ class WandEffectLogic(LabelEffect.LabelEffectLogic):
     backgroundArray = vtk.util.numpy_support.vtk_to_numpy(backgroundImage.GetPointData().GetScalars()).reshape(shape)
     labelArray = vtk.util.numpy_support.vtk_to_numpy(labelImage.GetPointData().GetScalars()).reshape(shape)
 
+    if self.fillMode == 'Plane':
+      # select the plane corresponding to current slice orientation
+      # for the input volume
+      ijkPlane = self.sliceIJKPlane()
+      i,j,k = ijk
+      if ijkPlane == 'JK':
+        backgroundDrawArray = backgroundArray[:,:,k]
+        labelDrawArray = labelArray[:,:,k]
+        ijk = (i, j)
+      if ijkPlane == 'IK':
+        backgroundDrawArray = backgroundArray[:,j,:]
+        labelDrawArray = labelArray[:,j,:]
+        ijk = (i, k)
+      if ijkPlane == 'IJ':
+        backgroundDrawArray = backgroundArray[i,:,:]
+        labelDrawArray = labelArray[i,:,:]
+        ijk = (j, k)
+    elif self.fillMode == 'Volume':
+      backgroundDrawArray = backgroundArray
+      labelDrawArray = labelArray
+
     #
     # do a recursive search for pixels to change
     #
     self.undoRedo.saveState()
-    value = backgroundArray[ijk]
+    value = backgroundDrawArray[ijk]
     label = EditUtil.EditUtil().getLabel()
     lo = value - tolerance
     hi = value + tolerance
     pixelsSet = 0
     toVisit = [ijk,]
     while toVisit != []:
-      location = toVisit.pop()
+      location = toVisit.pop(0)
       try:
-        l = labelArray[location]
-        b = backgroundArray[location]
+        l = labelDrawArray[location]
+        b = backgroundDrawArray[location]
       except IndexError:
         continue
       if l != 0 or b < lo or b > hi:
         continue
-      labelArray[location] = label
+      labelDrawArray[location] = label
       pixelsSet += 1
       if pixelsSet > maxPixels:
         toVisit = []
       else:
-        # add the 6 neighbors to the stack
-        toVisit.append((location[0] - 1, location[1]    , location[2]    ))
-        toVisit.append((location[0] + 1, location[1]    , location[2]    ))
-        toVisit.append((location[0]    , location[1] - 1, location[2]    ))
-        toVisit.append((location[0]    , location[1] + 1, location[2]    ))
-        toVisit.append((location[0]    , location[1]    , location[2] - 1))
-        toVisit.append((location[0]    , location[1]    , location[2] + 1))
+        if self.fillMode == 'Plane':
+          # add the 4 neighbors to the stack
+          toVisit.append((location[0] - 1, location[1]     ))
+          toVisit.append((location[0] + 1, location[1]     ))
+          toVisit.append((location[0]    , location[1] - 1 ))
+          toVisit.append((location[0]    , location[1] + 1 ))
+        elif self.fillMode == 'Volume':
+          # add the 6 neighbors to the stack
+          toVisit.append((location[0] - 1, location[1]    , location[2]    ))
+          toVisit.append((location[0] + 1, location[1]    , location[2]    ))
+          toVisit.append((location[0]    , location[1] - 1, location[2]    ))
+          toVisit.append((location[0]    , location[1] + 1, location[2]    ))
+          toVisit.append((location[0]    , location[1]    , location[2] - 1))
+          toVisit.append((location[0]    , location[1]    , location[2] + 1))
 
     # signal to slicer that the label needs to be updated
     labelImage.Modified()
