@@ -70,6 +70,11 @@ class WandEffectOptions(EditorLib.LabelEffectOptions):
 
     HelpButton(self.frame, "Use this tool to label all voxels that are within a tolerance of where you click")
 
+    # don't connect the signals and slots directly - instead, add these
+    # to the list of connections so that gui callbacks can be cleanly 
+    # disabled while the gui is being updated.  This allows several gui
+    # elements to be interlinked with signal/slots but still get updated
+    # as a unit to the new value of the mrml node.
     self.connections.append( 
         (self.toleranceSpinBox, 'valueChanged(double)', self.onToleranceSpinBoxChanged) )
     self.connections.append( 
