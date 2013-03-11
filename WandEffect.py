@@ -63,7 +63,7 @@ class WandEffectOptions(EditorLib.LabelEffectOptions):
     self.maxPixelsSpinBox = qt.QDoubleSpinBox(self.maxPixelsFrame)
     self.maxPixelsSpinBox.setToolTip("Set the maxPixels for each click")
     self.maxPixelsSpinBox.minimum = 1
-    self.maxPixelsSpinBox.maximum = 1000
+    self.maxPixelsSpinBox.maximum = 100000
     self.maxPixelsSpinBox.suffix = ""
     self.maxPixelsFrame.layout().addWidget(self.maxPixelsSpinBox)
     self.widgets.append(self.maxPixelsSpinBox)
@@ -206,7 +206,8 @@ class WandEffectLogic(LabelEffect.LabelEffectLogic):
     node = EditUtil.EditUtil().getParameterNode()
     tolerance = float(node.GetParameter("WandEffect,tolerance"))
     maxPixels = float(node.GetParameter("WandEffect,maxPixels"))
-
+    paintOver = int(node.GetParameter("LabelEffect,paintOver"))
+    
     #
     # get the label and background volume nodes
     #
@@ -277,6 +278,7 @@ class WandEffectLogic(LabelEffect.LabelEffectLogic):
     hi = value + tolerance
     pixelsSet = 0
     toVisit = [ijk,]
+    visited = []    
     while toVisit != []:
       location = toVisit.pop(0)
       try:
@@ -284,10 +286,28 @@ class WandEffectLogic(LabelEffect.LabelEffectLogic):
         b = backgroundDrawArray[location]
       except IndexError:
         continue
-      if l != 0 or b < lo or b > hi:
+      if (not paintOver and l != 0):
+        # label filled already and not painting over, leave it alone
         continue
-      labelDrawArray[location] = label
-      pixelsSet += 1
+      if (paintOver and l == label):
+        # label is the current one, but maybe it was filled with another high/low value,
+        # so we have to visit it once (and only once) in this session, too
+        visitedCurrentLocation = True
+        try:
+          visited.index(location)
+        except ValueError:
+          # not found, so not visited yet
+          visitedCurrentLocation = False
+        if visitedCurrentLocation:        
+          continue
+        else:
+          visited.append(location)
+      if b < lo or b > hi:
+        continue
+      labelDrawArray[location] = label        
+      if l != label:
+        # only count those pixels that were changed (to allow step-by-step growing by multiple mouse clicks)
+        pixelsSet += 1      
       if pixelsSet > maxPixels:
         toVisit = []
       else:
@@ -308,7 +328,6 @@ class WandEffectLogic(LabelEffect.LabelEffectLogic):
 
     # signal to slicer that the label needs to be updated
     labelImage.Modified()
-    labelNode.SetModifiedSinceRead(1)
     labelNode.Modified()
 
 #
